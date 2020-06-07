@@ -1,0 +1,204 @@
+package com.learning.service.impl;
+
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Optional;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import com.learning.dao.ExamRepository;
+import com.learning.dao.ExamRepositorySearchCriteria;
+import com.learning.dto.ExamDTO;
+import com.learning.model.Exam;
+import com.learning.model.Question;
+import com.learning.model.TypeEnumExam;
+import com.learning.model.base.Demande;
+import com.learning.model.base.PartialList;
+import com.learning.service.ExamService;
+import com.learning.service.QuestionService;
+
+@Service
+public class ExamServiceImpl implements ExamService {
+
+
+	@Autowired
+	private ExamRepository examRepository;
+	@Autowired
+	private QuestionService questionService;
+	@Autowired
+	private ExamRepositorySearchCriteria examRepositorySearchCriteria;
+
+
+	@Override
+	public ExamDTO save(ExamDTO examDTO) {
+		Exam exam = convertDTOtoModel(examDTO);
+		exam = examRepository.save(exam);
+		if (examDTO.getQuestions() != null) {
+			questionService.saveQuestionsByExam(examDTO.getQuestions(), exam);
+		}
+
+		return convertModelToDTO(exam);
+	}
+
+	@Override
+	public ExamDTO findById(long idOut) {
+		Optional<Exam> optional = examRepository.findById(idOut);
+
+		if (optional.isPresent()) {
+			Exam examFromDb = optional.get();
+			return convertModelToDTO(examFromDb);
+		}
+		return null;
+	}
+
+	@Override
+	public void delete(Exam exam) {
+		examRepository.delete(exam);
+
+	}
+
+	@Override
+	public PartialList<ExamDTO> findByCriteres(Demande<ExamDTO> demande) {
+
+		List<Exam> exams = examRepositorySearchCriteria.findByCriteres(demande);
+		Long count = examRepositorySearchCriteria.countByCriteres(demande);
+		return new PartialList<ExamDTO>(count, convertEntitiesToDtos(exams));
+
+	}
+
+	@Override
+	public Exam convertDTOtoModel(ExamDTO examDTO) {
+		Exam exam = new Exam();
+		exam.setId(examDTO.getId());
+		exam.setName(examDTO.getName());
+		exam.setStartDateTime(examDTO.getStartDateTime() != null ? examDTO.getStartDateTime().withSecond(0) : null);
+		exam.setEndDateTime(examDTO.getEndDateTime() != null ? examDTO.getEndDateTime().withSecond(0) : null);
+		exam.setScale(examDTO.getScale());
+
+
+		if (examDTO.getType() != null && !StringUtils.isEmpty(examDTO.getType())) {
+			exam.setType(TypeEnumExam.valueOf(examDTO.getType()));
+		}
+		return exam;
+	}
+
+	@Override
+	public ExamDTO convertModelToDTO(Exam exam) {
+		ExamDTO examDTO = new ExamDTO();
+		examDTO.setId(exam.getId());
+		examDTO.setName(exam.getName());
+		examDTO.setStartDateTime(exam.getStartDateTime());
+		examDTO.setEndDateTime(exam.getEndDateTime());
+		examDTO.setScale(exam.getScale());
+		examDTO.setLaunched(exam.isLaunched());
+
+		List<Question> questions = exam.getQuestions();
+		TypeEnumExam type = exam.getType();
+
+		if (questions != null) {
+			examDTO.setQuestions(questionService.convertEntitiesToDtos(questions));
+		}
+		if (type != null) {
+			examDTO.setType(type.toString());
+		}
+		examDTO.setCreatedAt(exam.getCreatedAt());
+		examDTO.setUpdatedAt(exam.getUpdatedAt());
+		return examDTO;
+	}
+
+	@Override
+	public PartialList<ExamDTO> convertToListDTO(PartialList<Exam> list) {
+		// TODO Auto-generated method stub
+		return null;
+	}
+
+	@Override
+	public void deleteById(Long id) {
+		examRepository.deleteById(id);
+		questionService.detachExam(id);
+
+	}
+
+	@Override
+	public List<ExamDTO> convertEntitiesToDtos(List<Exam> exams) {
+		// basic methode
+		List<ExamDTO> list = new ArrayList<ExamDTO>();
+		for (Exam exam : exams) {
+			list.add(convertModelToDTO(exam));
+		}
+		return list;
+	}
+
+	@Override
+	public List<Exam> convertDtosToEntities(List<ExamDTO> examsDTO) {
+		List<Exam> list = new ArrayList<Exam>();
+		for (ExamDTO examDTO : examsDTO) {
+			list.add(convertDTOtoModel(examDTO));
+		}
+		return list;
+	}
+
+
+
+
+	@Override
+	public ExamDTO convertModelToDTOWithoutQuestion(Exam exam) {
+
+		ExamDTO examDTO = new ExamDTO();
+		examDTO.setId(exam.getId());
+		examDTO.setName(exam.getName());
+		examDTO.setStartDateTime(exam.getStartDateTime());
+		examDTO.setEndDateTime(exam.getEndDateTime());
+		examDTO.setLaunched(exam.isLaunched());
+
+
+
+
+		examDTO.setCreatedAt(exam.getCreatedAt());
+		examDTO.setUpdatedAt(exam.getUpdatedAt());
+		return examDTO;
+	}
+
+	
+
+	@Override
+	public List<ExamDTO> findByUser(Long idUser) {
+		LocalDateTime now = LocalDateTime.now();
+		List<Exam> exams = examRepository.findByUser(now,idUser);
+		return convertEnititiesToDTOsWithoutQuestion(exams);
+	}
+
+	@Override
+	public List<ExamDTO> convertEnititiesToDTOsWithoutQuestion(List<Exam> list) {
+
+		return list.stream().map(e -> convertModelToDTOWithoutQuestion(e)).collect(Collectors.toList());
+	}
+
+	@Override
+	public void launch(Long idExam) {
+		Optional<Exam> optional = examRepository.findById(idExam);
+		if (optional.isPresent()) {
+			//List<UserDTO> students = null;
+			Exam exam = optional.get();
+			exam.setLaunched(true);
+			examRepository.save(exam);
+//			if (exam.getType().toString().equals(StatutEnum.CATCHING_UP.toString())) {
+//				students = userService.findCatchingUpStudentByModule(module.getId(), StatutEnum.CATCHING_UP);
+//			} else {
+//				Long idGroup = moduleService.getGroupByModule(module.getId());
+//				students = userService.findByGroupAndRole(idGroup, RoleName.ROLE_STUDENT);
+//			}
+//			if (students != null) {
+//				noteExamService.saveByExamAndStudent(exam, students);
+//			}
+		}
+
+	}
+
+
+
+}
