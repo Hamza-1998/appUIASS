@@ -1,0 +1,10 @@
+Manifest-Version: 1.0
+Built-By: etudiant
+Build-Jdk: 12
+Implementation-Title: cashPlus-3
+Implementation-Version: 0.0.1-SNAPSHOT
+Implementation-Vendor-Id: com.learning
+Implementation-URL: https://projects.spring.io/spring-boot/#/spring-boot
+ -starter-parent/learning
+Created-By: Maven Integration for Eclipse
+
